@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TicketHub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1 onclick="show('events')">TicketHub</h1>
+    <nav>
+      <span id="user"></span>
+      <button id="mineBtn" onclick="show('mine')">My bookings</button>
+      <button id="loginBtn" onclick="show('auth')">Login / Register</button>
+      <button id="logoutBtn" onclick="logout()">Logout</button>
+    </nav>
+  </header>
+  <p id="msg"></p>
+  <main>
+    <section id="events"><h2>Upcoming events</h2><div id="eventList" class="grid"></div></section>
+    <section id="seats" hidden>
+      <h2>Choose your seats</h2>
+      <div class="stage">STAGE</div>
+      <div id="seatGrid"></div>
+      <p>Selected: <b id="selected">none</b></p>
+      <button onclick="book()">Book selected seats</button>
+    </section>
+    <section id="auth" hidden>
+      <h2>Login or register</h2>
+      <input id="name" placeholder="Name (for registration)">
+      <input id="email" type="email" placeholder="Email">
+      <input id="password" type="password" placeholder="Password (6+ characters)">
+      <button onclick="authenticate('login')">Login</button>
+      <button onclick="authenticate('register')">Register</button>
+    </section>
+    <section id="mine" hidden><h2>My bookings</h2><div id="bookingList"></div></section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

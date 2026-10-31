@@ -1,0 +1,14 @@
+# Builds the backend image by cloning the repository from GitHub.
+#   docker build -f backend/Dockerfile.git \
+#     --build-arg REPO_URL=https://github.com/<your-user>/tickethub.git -t tickethub-backend:git .
+FROM node:20-alpine
+RUN apk add --no-cache git
+ARG REPO_URL=https://github.com/CHANGE-ME/tickethub.git
+ARG BRANCH=main
+WORKDIR /src
+RUN git clone --depth 1 --branch ${BRANCH} ${REPO_URL} .
+WORKDIR /src/backend
+RUN npm install --omit=dev && node --check server.js
+EXPOSE 3000
+USER node
+CMD ["node", "server.js"]

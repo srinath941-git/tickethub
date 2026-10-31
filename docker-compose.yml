@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ticketdb
+      POSTGRES_USER: ticketuser
+      POSTGRES_PASSWORD: ChangeMe@123
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  backend:
+    build: ./backend
+    environment:
+      DB_HOST: db
+      DB_NAME: ticketdb
+      DB_USER: ticketuser
+      DB_PASSWORD: ChangeMe@123
+      JWT_SECRET: local-dev-secret
+    depends_on: [db]
+  frontend:
+    build: ./frontend
+    ports:
+      - '8080:80'
+    depends_on: [backend]
+volumes:
+  pgdata:

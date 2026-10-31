@@ -1,0 +1,3 @@
+key_name         = "your-keypair-name"
+private_key_path = "~/.ssh/your-keypair-name.pem"
+my_ip_cidr       = "203.0.113.10/32"

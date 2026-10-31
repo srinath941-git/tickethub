@@ -1,0 +1,37 @@
+# Nightly pg_dump to /mnt/backups on worker2.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  namespace: tickets
+spec:
+  schedule: '0 2 * * *'
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: db-backup
+        spec:
+          restartPolicy: OnFailure
+          nodeSelector:
+            kubernetes.io/hostname: worker2
+          containers:
+            - name: pgdump
+              image: docker.io/library/postgres:16-alpine
+              command: [sh, -c, 'pg_dump -h db -U $POSTGRES_USER $POSTGRES_DB | gzip > /backup/ticketdb-$(date +%F).sql.gz']
+              env:
+                - name: PGPASSWORD
+                  valueFrom: { secretKeyRef: { name: tickethub-secret, key: POSTGRES_PASSWORD } }
+                - name: POSTGRES_USER
+                  valueFrom: { secretKeyRef: { name: tickethub-secret, key: POSTGRES_USER } }
+                - name: POSTGRES_DB
+                  valueFrom: { secretKeyRef: { name: tickethub-secret, key: POSTGRES_DB } }
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              hostPath:
+                path: /mnt/backups
+                type: DirectoryOrCreate

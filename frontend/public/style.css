@@ -1,0 +1,20 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #1e293b; }
+header h1 { margin: 0; cursor: pointer; color: #f59e0b; }
+nav { display: flex; gap: 8px; align-items: center; }
+main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.card { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.card h3 { margin-top: 0; }
+button { background: #f59e0b; color: #0f172a; border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid #e2e8f0; outline-offset: 2px; }
+input { display: block; width: 100%; max-width: 360px; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: inherit; }
+.stage { text-align: center; background: #334155; border-radius: 8px; padding: 8px; margin: 16px 0; letter-spacing: 4px; }
+#seatGrid { display: grid; grid-template-columns: repeat(8, 44px); gap: 8px; justify-content: center; margin-bottom: 16px; }
+.seat { padding: 10px 0; background: #166534; color: #fff; }
+.seat.picked { background: #f59e0b; color: #0f172a; }
+.seat.booked { background: #475569; cursor: not-allowed; }
+#msg { text-align: center; margin: 12px; min-height: 1em; }
+#msg.ok { color: #4ade80; }
+#msg.err { color: #f87171; }

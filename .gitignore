@@ -1,0 +1,7 @@
+node_modules/
+.terraform/
+*.tfstate*
+*.pem
+terraform/terraform.tfvars
+ansible/admin.conf
+ansible/inventory.ini

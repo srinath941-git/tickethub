@@ -1,0 +1,28 @@
+# Helm values for kube-prometheus-stack. Change the Grafana password before use.
+grafana:
+  adminPassword: ChangeMe@123
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt
+    hosts: [grafana.srinathahir.co.in]
+    tls:
+      - secretName: grafana-tls
+        hosts: [grafana.srinathahir.co.in]
+prometheus:
+  prometheusSpec:
+    retention: 3d
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+alertmanager:
+  enabled: false
+# kubeadm binds these components to localhost, so Prometheus cannot scrape them
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false

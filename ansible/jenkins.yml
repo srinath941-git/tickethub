@@ -1,0 +1,69 @@
+# Installs Jenkins, Docker and kubectl on the CI server.
+- name: Configure the Jenkins server
+  hosts: ci
+  become: true
+  vars:
+    k8s_version: v1.29
+  tasks:
+    - name: Install Java, Docker and helper packages
+      apt:
+        name: [fontconfig, openjdk-21-jre, docker.io, curl, gpg, ca-certificates]
+        update_cache: true
+
+    - name: Make sure the keyrings folder exists
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download the Jenkins and Kubernetes repository keys
+      get_url:
+        url: '{{ item.url }}'
+        dest: '{{ item.dest }}'
+      loop:
+        - { url: 'https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key', dest: /usr/share/keyrings/jenkins-keyring.asc }
+        - { url: 'https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/Release.key', dest: /etc/apt/keyrings/kubernetes.asc }
+
+    - name: Add the Jenkins and Kubernetes repositories
+      apt_repository:
+        repo: '{{ item.repo }}'
+        filename: '{{ item.name }}'
+      loop:
+        - { name: jenkins, repo: 'deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/' }
+        - { name: kubernetes, repo: 'deb [signed-by=/etc/apt/keyrings/kubernetes.asc] https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/ /' }
+
+    - name: Install Jenkins and kubectl
+      apt:
+        name: [jenkins, kubectl]
+        update_cache: true
+
+    - name: Let the jenkins user run Docker
+      user:
+        name: jenkins
+        groups: docker
+        append: true
+      notify: Restart Jenkins
+
+    - name: Start Jenkins at boot
+      systemd:
+        name: jenkins
+        enabled: true
+        state: started
+
+    - name: Read the first-login password
+      command: cat /var/lib/jenkins/secrets/initialAdminPassword
+      register: jpass
+      retries: 12
+      delay: 5
+      until: jpass.rc == 0
+      changed_when: false
+
+    - name: Show the first-login password
+      debug:
+        msg: 'Jenkins first-login password: {{ jpass.stdout }}'
+
+  handlers:
+    - name: Restart Jenkins
+      systemd:
+        name: jenkins
+        state: restarted

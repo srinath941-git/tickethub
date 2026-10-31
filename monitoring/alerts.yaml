@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tickethub-alerts
+  namespace: tickets
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: tickethub
+      rules:
+        - alert: BackendDown
+          expr: up{namespace="tickets", job="backend"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: A TicketHub backend pod cannot be scraped
+        - alert: PodRestartingOften
+          expr: increase(kube_pod_container_status_restarts_total{namespace="tickets"}[15m]) > 3
+          labels:
+            severity: warning
+          annotations:
+            summary: A pod in the tickets namespace is restarting repeatedly
+        - alert: ManyBookingConflicts
+          expr: rate(booking_conflicts_total[5m]) > 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Many users are fighting over the same seats

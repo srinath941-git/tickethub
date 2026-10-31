@@ -1,0 +1,10 @@
+# Traefik listens on ports 80 and 443 of the ingress node (worker1, label ingress=true).
+service:
+  type: ClusterIP
+ports:
+  web:
+    hostPort: 80
+  websecure:
+    hostPort: 443
+nodeSelector:
+  ingress: 'true'

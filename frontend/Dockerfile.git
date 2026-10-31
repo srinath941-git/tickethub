@@ -1,0 +1,12 @@
+# Builds the frontend image by cloning the repository from GitHub.
+#   docker build -f frontend/Dockerfile.git \
+#     --build-arg REPO_URL=https://github.com/<your-user>/tickethub.git -t tickethub-frontend:git .
+FROM alpine:3.20 AS source
+RUN apk add --no-cache git
+ARG REPO_URL=https://github.com/CHANGE-ME/tickethub.git
+ARG BRANCH=main
+RUN git clone --depth 1 --branch ${BRANCH} ${REPO_URL} /src
+
+FROM nginx:alpine
+COPY --from=source /src/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=source /src/frontend/public/ /usr/share/nginx/html/

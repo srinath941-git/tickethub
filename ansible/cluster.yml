@@ -1,0 +1,151 @@
+# Builds a kubeadm cluster on CRI-O: prepares every node, initialises the control
+# plane, installs Calico, joins the workers and labels the ingress node.
+- name: Prepare every Kubernetes node (CRI-O, kubeadm, kubelet)
+  hosts: k8s
+  become: true
+  vars:
+    k8s_version: v1.29
+    crio_version: v1.29
+  tasks:
+    - name: Set the hostname to the inventory name
+      hostname:
+        name: '{{ inventory_hostname }}'
+
+    - name: Turn swap off now and after reboots
+      shell: swapoff -a && sed -i '/ swap / s/^/#/' /etc/fstab
+      changed_when: false
+
+    - name: Load the kernel modules Kubernetes needs
+      community.general.modprobe:
+        name: '{{ item }}'
+        persistent: present
+      loop: [overlay, br_netfilter]
+
+    - name: Apply the kernel network settings
+      ansible.posix.sysctl:
+        name: '{{ item }}'
+        value: '1'
+        sysctl_file: /etc/sysctl.d/k8s.conf
+        reload: true
+      loop:
+        - net.bridge.bridge-nf-call-iptables
+        - net.bridge.bridge-nf-call-ip6tables
+        - net.ipv4.ip_forward
+
+    - name: Install base packages
+      apt:
+        name: [apt-transport-https, ca-certificates, curl, gpg]
+        update_cache: true
+
+    - name: Make sure the keyrings folder exists
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download the Kubernetes and CRI-O repository keys
+      get_url:
+        url: '{{ item.url }}'
+        dest: '{{ item.dest }}'
+      loop:
+        - { url: 'https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/Release.key', dest: /etc/apt/keyrings/kubernetes.asc }
+        - { url: 'https://download.opensuse.org/repositories/isv:/cri-o:/stable:/{{ crio_version }}/deb/Release.key', dest: /etc/apt/keyrings/crio.asc }
+
+    - name: Add the Kubernetes and CRI-O repositories
+      apt_repository:
+        repo: '{{ item.repo }}'
+        filename: '{{ item.name }}'
+      loop:
+        - { name: kubernetes, repo: 'deb [signed-by=/etc/apt/keyrings/kubernetes.asc] https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/ /' }
+        - { name: crio, repo: 'deb [signed-by=/etc/apt/keyrings/crio.asc] https://download.opensuse.org/repositories/isv:/cri-o:/stable:/{{ crio_version }}/deb/ /' }
+
+    - name: Install CRI-O, kubelet, kubeadm and kubectl
+      apt:
+        name: [cri-o, kubelet, kubeadm, kubectl]
+        update_cache: true
+
+    - name: Hold the Kubernetes packages at this version
+      dpkg_selections:
+        name: '{{ item }}'
+        selection: hold
+      loop: [kubelet, kubeadm, kubectl]
+
+    - name: Point crictl at CRI-O
+      copy:
+        dest: /etc/crictl.yaml
+        content: 'runtime-endpoint: unix:///var/run/crio/crio.sock'
+
+    - name: Start CRI-O
+      systemd:
+        name: crio
+        enabled: true
+        state: started
+
+    - name: Enable kubelet (kubeadm starts it)
+      systemd:
+        name: kubelet
+        enabled: true
+
+- name: Initialise the control plane
+  hosts: control_plane
+  become: true
+  vars:
+    pod_cidr: 192.168.0.0/16
+    calico_version: v3.27.3
+  tasks:
+    - name: Run kubeadm init
+      command: >
+        kubeadm init
+        --apiserver-advertise-address={{ private_ip }}
+        --apiserver-cert-extra-sans={{ ansible_host }}
+        --pod-network-cidr={{ pod_cidr }}
+        --cri-socket=unix:///var/run/crio/crio.sock
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+    - name: Give the ubuntu user a kubeconfig
+      shell: |
+        mkdir -p /home/ubuntu/.kube
+        cp -f /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+        chown -R ubuntu:ubuntu /home/ubuntu/.kube
+      changed_when: false
+
+    - name: Install the Calico pod network
+      become_user: ubuntu
+      command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/calico.yaml
+
+    - name: Create the worker join command
+      command: kubeadm token create --print-join-command
+      register: join
+      changed_when: false
+
+    - name: Keep the join command for the workers
+      set_fact:
+        join_command: '{{ join.stdout }} --cri-socket=unix:///var/run/crio/crio.sock'
+
+    - name: Download admin.conf (used later as the Jenkins kubeconfig credential)
+      fetch:
+        src: /etc/kubernetes/admin.conf
+        dest: ./admin.conf
+        flat: true
+
+- name: Join the workers
+  hosts: workers
+  become: true
+  tasks:
+    - name: Run the join command
+      command: '{{ hostvars.master.join_command }}'
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+
+- name: Label the nodes
+  hosts: control_plane
+  become: true
+  become_user: ubuntu
+  tasks:
+    - name: Wait until every node is Ready
+      command: kubectl wait --for=condition=Ready nodes --all --timeout=300s
+      changed_when: false
+
+    - name: Mark worker1 as the ingress node
+      command: kubectl label node worker1 ingress=true --overwrite
